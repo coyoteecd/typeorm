@@ -115,8 +115,11 @@ export class ReturningResultsEntityUpdator {
         });
 
         // for postgres and mssql we use returning/output statement to get values of inserted default and generated values
+        // for aurora-data-api the generated values are provided by the driver automatically
         // for other drivers we have to re-select this data from the database
-        if (this.queryRunner.connection.driver.isReturningSqlSupported() === false && insertionColumns.length > 0) {
+        if (this.queryRunner.connection.driver.isReturningSqlSupported() === false &&
+            this.queryRunner.connection.driver.isGeneratedFieldsSupported() === false &&
+            insertionColumns.length > 0) {
             const entityIds = entities.map((entity) => {
                 const entityId = metadata.getEntityIdMap(entity)!;
 
@@ -141,7 +144,7 @@ export class ReturningResultsEntityUpdator {
                 .addSelect(insertionColumns.map(column => metadata.targetName + "." + column.propertyPath))
                 .from(metadata.target, metadata.targetName)
                 .where(entityIds)
-                .setOption("create-pojo") // use POJO because created object can contain default values, e.g. property = null and those properties maight be overridden by merge process
+                .setOption("create-pojo") // use POJO because created object can contain default values, e.g. property = null and those properties might be overridden by merge process
                 .getMany();
 
             entities.forEach((entity, entityIndex) => {

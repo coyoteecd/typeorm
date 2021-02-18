@@ -594,6 +594,14 @@ export abstract class AbstractSqliteDriver implements Driver {
     }
 
     /**
+     * Returns true if driver supports including generated fields (e.g. inserted IDs) in the results of INSERT statements,
+     * without the need of a RETURNING/OUTPUT clause.
+     */
+    isGeneratedFieldsSupported(): boolean {
+        return false;
+    }
+
+    /**
      * Returns true if driver supports uuid values generation on its own.
      */
     isUUIDGenerationSupported(): boolean {
