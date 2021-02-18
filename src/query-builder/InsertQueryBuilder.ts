@@ -19,6 +19,7 @@ import {BroadcasterResult} from "../subscriber/BroadcasterResult";
 import {EntitySchema} from "../entity-schema/EntitySchema";
 import {OracleDriver} from "../driver/oracle/OracleDriver";
 import {AuroraDataApiDriver} from "../driver/aurora-data-api/AuroraDataApiDriver";
+import {EntityUpdateMode} from "./EntityUpdateMode";
 
 /**
  * Allows to build complex sql queries in a fashion way and execute those queries.
@@ -85,10 +86,12 @@ export class InsertQueryBuilder<Entity> extends QueryBuilder<Entity> {
 
             // if update entity mode is enabled we may need extra columns for the returning statement
             // console.time(".prepare returning statement");
+
+            const updateIdentitiesOnly = this.expressionMap.updateEntity === EntityUpdateMode.IdentityOnly;
             const returningResultsEntityUpdator = new ReturningResultsEntityUpdator(queryRunner, this.expressionMap);
-            if (this.expressionMap.updateEntity === true && this.expressionMap.mainAlias!.hasMetadata) {
+            if (this.expressionMap.updateEntity !== EntityUpdateMode.None && this.expressionMap.mainAlias!.hasMetadata) {
                 if (!(valueSets.length > 1 && this.connection.driver instanceof OracleDriver)) {
-                    this.expressionMap.extraReturningColumns = returningResultsEntityUpdator.getInsertionReturningColumns();
+                    this.expressionMap.extraReturningColumns = returningResultsEntityUpdator.getInsertionReturningColumns(updateIdentitiesOnly);
                 }
                 if (this.expressionMap.extraReturningColumns.length > 0 && this.connection.driver instanceof SqlServerDriver) {
                     declareSql = this.connection.driver.buildTableVariableDeclaration("@OutputTable", this.expressionMap.extraReturningColumns);
@@ -111,9 +114,9 @@ export class InsertQueryBuilder<Entity> extends QueryBuilder<Entity> {
             // console.timeEnd(".query execution by database");
 
             // load returning results and set them to the entity if entity updation is enabled
-            if (this.expressionMap.updateEntity === true && this.expressionMap.mainAlias!.hasMetadata) {
+            if (this.expressionMap.updateEntity !== EntityUpdateMode.None && this.expressionMap.mainAlias!.hasMetadata) {
                 // console.time(".updating entity");
-                await returningResultsEntityUpdator.insert(insertResult, valueSets);
+                await returningResultsEntityUpdator.insert(insertResult, valueSets, updateIdentitiesOnly);
                 // console.timeEnd(".updating entity");
             }
 
@@ -237,12 +240,16 @@ export class InsertQueryBuilder<Entity> extends QueryBuilder<Entity> {
     }
 
     /**
-     * Indicates if entity must be updated after insertion operations.
-     * This may produce extra query or use RETURNING / OUTPUT statement (depend on database).
+     * Indicates if entity must be updated after insertion operation.
+     * This may produce extra query or use RETURNING / OUTPUT statement (depending on database).
      * Enabled by default.
      */
-    updateEntity(enabled: boolean): this {
-        this.expressionMap.updateEntity = enabled;
+    updateEntity(updateMode: EntityUpdateMode | boolean): this {
+        if (typeof updateMode === "boolean") {
+            this.expressionMap.updateEntity = updateMode ? EntityUpdateMode.All : EntityUpdateMode.None;
+        } else {
+            this.expressionMap.updateEntity = updateMode;
+        }
         return this;
     }
 
@@ -632,15 +639,15 @@ export class InsertQueryBuilder<Entity> extends QueryBuilder<Entity> {
 
     /**
      * Checks if column is an auto-generated primary key, but the current insertion specifies a value for it.
-     * 
+     *
      * @param column
      */
     protected isOverridingAutoIncrementBehavior(column: ColumnMetadata): boolean {
-        return column.isPrimary 
-                && column.isGenerated 
+        return column.isPrimary
+                && column.isGenerated
                 && column.generationStrategy === "increment"
-                && this.getValueSets().some((valueSet) => 
-                    column.getEntityValue(valueSet) !== undefined 
+                && this.getValueSets().some((valueSet) =>
+                    column.getEntityValue(valueSet) !== undefined
                     && column.getEntityValue(valueSet) !== null
                 );
     }

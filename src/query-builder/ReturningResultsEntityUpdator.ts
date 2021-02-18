@@ -78,11 +78,12 @@ export class ReturningResultsEntityUpdator {
     }
 
     /**
-     * Updates entities with a special columns after insertion query execution.
+     * Updates entities with their generated identities, or all special columns (such as defaults, create time etc.)
+     * after insertion query execution, depending on updateEntitiesOnly flag.
      */
-    async insert(insertResult: InsertResult, entities: ObjectLiteral[]): Promise<void> {
+    async insert(insertResult: InsertResult, entities: ObjectLiteral[], updateIdentitiesOnly: boolean): Promise<void> {
         const metadata = this.expressionMap.mainAlias!.metadata;
-        const insertionColumns = this.getInsertionReturningColumns();
+        const insertionColumns = this.getInsertionReturningColumns(updateIdentitiesOnly);
 
         const generatedMaps = entities.map((entity, entityIndex) => {
             if (this.queryRunner.connection.driver instanceof OracleDriver && Array.isArray(insertResult.raw) && this.expressionMap.extraReturningColumns.length > 0) {
@@ -115,11 +116,11 @@ export class ReturningResultsEntityUpdator {
         });
 
         // for postgres and mssql we use returning/output statement to get values of inserted default and generated values
-        // for aurora-data-api the generated values are provided by the driver automatically
         // for other drivers we have to re-select this data from the database
-        if (this.queryRunner.connection.driver.isReturningSqlSupported() === false &&
-            this.queryRunner.connection.driver.isGeneratedFieldsSupported() === false &&
+        if (updateIdentitiesOnly === false &&
+            this.queryRunner.connection.driver.isReturningSqlSupported() === false &&
             insertionColumns.length > 0) {
+
             const entityIds = entities.map((entity) => {
                 const entityId = metadata.getEntityIdMap(entity)!;
 
@@ -162,12 +163,17 @@ export class ReturningResultsEntityUpdator {
 
     /**
      * Columns we need to be returned from the database when we insert entity.
+     * @param identitiesOnly Whether to
      */
-    getInsertionReturningColumns(): ColumnMetadata[] {
+    getInsertionReturningColumns(identitiesOnly: boolean): ColumnMetadata[] {
 
         // for databases which support returning statement we need to return extra columns like id
         // for other databases we don't need to return id column since its returned by a driver already
         const needToCheckGenerated = this.queryRunner.connection.driver.isReturningSqlSupported();
+
+        if (identitiesOnly && needToCheckGenerated) {
+            return this.expressionMap.mainAlias!.metadata.columns.filter(column => column.isGenerated);
+        }
 
         // filter out the columns of which we need database inserted values to update our entity
         return this.expressionMap.mainAlias!.metadata.columns.filter(column => {

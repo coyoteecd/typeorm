@@ -21,6 +21,7 @@ import {MissingDeleteDateColumnError} from "../error/MissingDeleteDateColumnErro
 import {OracleDriver} from "../driver/oracle/OracleDriver";
 import {UpdateValuesMissingError} from "../error/UpdateValuesMissingError";
 import {EntitySchema} from "../entity-schema/EntitySchema";
+import {EntityUpdateMode} from "./EntityUpdateMode";
 
 /**
  * Allows to build complex sql queries in a fashion way and execute those queries.
@@ -74,7 +75,7 @@ export class SoftDeleteQueryBuilder<Entity> extends QueryBuilder<Entity> impleme
 
             // if update entity mode is enabled we may need extra columns for the returning statement
             const returningResultsEntityUpdator = new ReturningResultsEntityUpdator(queryRunner, this.expressionMap);
-            if (this.expressionMap.updateEntity === true &&
+            if (this.expressionMap.updateEntity === EntityUpdateMode.All &&
                 this.expressionMap.mainAlias!.hasMetadata &&
                 this.expressionMap.whereEntities.length > 0) {
                 this.expressionMap.extraReturningColumns = returningResultsEntityUpdator.getUpdationReturningColumns();
@@ -95,7 +96,7 @@ export class SoftDeleteQueryBuilder<Entity> extends QueryBuilder<Entity> impleme
             }
 
             // if we are updating entities and entity updation is enabled we must update some of entity columns (like version, update date, etc.)
-            if (this.expressionMap.updateEntity === true &&
+            if (this.expressionMap.updateEntity === EntityUpdateMode.All &&
                 this.expressionMap.mainAlias!.hasMetadata &&
                 this.expressionMap.whereEntities.length > 0) {
                 await returningResultsEntityUpdator.update(updateResult, this.expressionMap.whereEntities);
@@ -350,11 +351,15 @@ export class SoftDeleteQueryBuilder<Entity> extends QueryBuilder<Entity> impleme
 
     /**
      * Indicates if entity must be updated after update operation.
-     * This may produce extra query or use RETURNING / OUTPUT statement (depend on database).
+     * This may produce extra query or use RETURNING / OUTPUT statement (depending on database).
      * Enabled by default.
      */
-    updateEntity(enabled: boolean): this {
-        this.expressionMap.updateEntity = enabled;
+    updateEntity(updateMode: EntityUpdateMode.None | EntityUpdateMode.All | boolean): this {
+        if (typeof updateMode === "boolean") {
+            this.expressionMap.updateEntity = updateMode ? EntityUpdateMode.All : EntityUpdateMode.None;
+        } else {
+            this.expressionMap.updateEntity = updateMode;
+        }
         return this;
     }
 

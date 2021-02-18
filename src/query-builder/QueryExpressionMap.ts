@@ -11,6 +11,7 @@ import {ColumnMetadata} from "../metadata/ColumnMetadata";
 import {RelationMetadata} from "../metadata/RelationMetadata";
 import {QueryBuilder} from "./QueryBuilder";
 import {SelectQueryBuilderOption} from "./SelectQueryBuilderOption";
+import {EntityUpdateMode} from "./EntityUpdateMode";
 
 /**
  * Contains all properties of the QueryBuilder that needs to be build a final query.
@@ -261,9 +262,9 @@ export class QueryExpressionMap {
 
     /**
      * Indicates if entity must be updated after insertion / updation.
-     * This may produce extra query or use RETURNING / OUTPUT statement (depend on database).
+     * This may produce extra query or use RETURNING / OUTPUT statement (depends on database).
      */
-    updateEntity: boolean = true;
+    updateEntity: EntityUpdateMode = EntityUpdateMode.All;
 
     /**
      * Indicates if listeners and subscribers must be called before and after query execution.

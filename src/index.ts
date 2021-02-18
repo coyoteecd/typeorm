@@ -140,6 +140,7 @@ export {WhereExpression} from "./query-builder/WhereExpression";
 export {InsertResult} from "./query-builder/result/InsertResult";
 export {UpdateResult} from "./query-builder/result/UpdateResult";
 export {DeleteResult} from "./query-builder/result/DeleteResult";
+export {EntityUpdateMode} from "./query-builder/EntityUpdateMode";
 export {QueryRunner} from "./query-runner/QueryRunner";
 export {MongoEntityManager} from "./entity-manager/MongoEntityManager";
 export {Migration} from "./migration/Migration";
