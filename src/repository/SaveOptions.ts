@@ -1,3 +1,5 @@
+import { EntityUpdateMode } from "../query-builder/EntityUpdateMode";
+
 /**
  * Special options passed to Repository#save, Repository#insert and Repository#update methods.
  */
@@ -30,12 +32,17 @@ export interface SaveOptions {
     chunk?: number;
 
     /**
-     * Flag to determine whether the entity that is being persisted
+     * Determines whether the entity that is being persisted
      * should be reloaded during the persistence operation.
      *
-     * It will work only on databases which does not support RETURNING / OUTPUT statement.
+     * For databases which do not support RETURNING / OUTPUT statement, this will generate
+     * an extra SELECT query.
+     *
+     * For databases which do support RETURNING / OUTPUT statements, those statements are used
+     * to retrieve values of special columns such as generated identity columns, columns with defaults, create date, version etc.
+     *
      * Enabled by default.
      */
-    reload?: boolean;
+    reload?: EntityUpdateMode | boolean;
 
 }

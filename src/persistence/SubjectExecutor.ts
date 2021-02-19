@@ -1,4 +1,5 @@
 import {SapDriver} from "../driver/sap/SapDriver";
+import {EntityUpdateMode} from "../query-builder/EntityUpdateMode";
 import {QueryRunner} from "../query-runner/QueryRunner";
 import {Subject} from "./Subject";
 import {SubjectTopoligicalSorter} from "./SubjectTopoligicalSorter";
@@ -307,9 +308,7 @@ export class SubjectExecutor {
             } else {
 
                 // here we execute our insertion query
-                // we need to enable entity updation because we DO need to have updated insertedMap
-                // which is not same object as our entity that's why we don't need to worry about our entity to get dirty
-                // also, we disable listeners because we call them on our own in persistence layer
+                // we disable listeners because we call them on our own in persistence layer
                 if (bulkInsertMaps.length > 0) {
                     const insertResult = await this.queryRunner
                         .manager
@@ -317,7 +316,7 @@ export class SubjectExecutor {
                         .insert()
                         .into(subjects[0].metadata.target)
                         .values(bulkInsertMaps)
-                        .updateEntity(this.options && this.options.reload === false ? false : true)
+                        .updateEntity(this.getEntityUpdateMode())
                         .callListeners(false)
                         .execute();
 
@@ -343,7 +342,7 @@ export class SubjectExecutor {
                             .insert()
                             .into(subject.metadata.target)
                             .values(subject.insertedValueSet)
-                            .updateEntity(this.options && this.options.reload === false ? false : true)
+                            .updateEntity(this.getEntityUpdateMode())
                             .callListeners(false)
                             .execute()
                             .then(insertResult => {
@@ -407,6 +406,7 @@ export class SubjectExecutor {
             } else {
 
                 const updateMap: ObjectLiteral = subject.createValueSetAndPopChangeMap();
+                const updateMode = this.getEntityUpdateMode();
 
                 // for tree tables we execute additional queries
                 switch (subject.metadata.treeType) {
@@ -424,15 +424,14 @@ export class SubjectExecutor {
                 }
 
                 // here we execute our updation query
-                // we need to enable entity updation because we update a subject identifier
-                // which is not same object as our entity that's why we don't need to worry about our entity to get dirty
+                // for update, we treat IdentityOnly as no update, since the identities of existing entities are already there
                 // also, we disable listeners because we call them on our own in persistence layer
                 const updateQueryBuilder = this.queryRunner
                     .manager
                     .createQueryBuilder()
                     .update(subject.metadata.target)
                     .set(updateMap)
-                    .updateEntity(this.options && this.options.reload === false ? false : true)
+                    .updateEntity(updateMode === EntityUpdateMode.IdentityOnly ? EntityUpdateMode.None : updateMode)
                     .callListeners(false);
 
                 if (subject.entity) {
@@ -574,6 +573,8 @@ export class SubjectExecutor {
 
             } else {
 
+                const updateMode = this.getEntityUpdateMode();
+
                 // here we execute our soft-deletion query
                 // we need to enable entity soft-deletion because we update a subject identifier
                 // which is not same object as our entity that's why we don't need to worry about our entity to get dirty
@@ -583,7 +584,7 @@ export class SubjectExecutor {
                     .createQueryBuilder()
                     .softDelete()
                     .from(subject.metadata.target)
-                    .updateEntity(this.options && this.options.reload === false ? false : true)
+                    .updateEntity(updateMode === EntityUpdateMode.IdentityOnly ? EntityUpdateMode.None : updateMode) // same as update
                     .callListeners(false);
 
                 if (subject.entity) {
@@ -654,6 +655,8 @@ export class SubjectExecutor {
 
             } else {
 
+                const updateMode = this.getEntityUpdateMode();
+
                 // here we execute our restory query
                 // we need to enable entity restory because we update a subject identifier
                 // which is not same object as our entity that's why we don't need to worry about our entity to get dirty
@@ -663,7 +666,7 @@ export class SubjectExecutor {
                     .createQueryBuilder()
                     .restore()
                     .from(subject.metadata.target)
-                    .updateEntity(this.options && this.options.reload === false ? false : true)
+                    .updateEntity(updateMode === EntityUpdateMode.IdentityOnly ? EntityUpdateMode.None : updateMode) // same as update
                     .callListeners(false);
 
                 if (subject.entity) {
@@ -827,4 +830,12 @@ export class SubjectExecutor {
         return [group, keys];
     }
 
+    /**
+     * Gets the update mode for entities processed by this executor (as configured in options.reload property).
+     */
+    private getEntityUpdateMode() {
+        return this.options && this.options.reload !== null && this.options.reload !== undefined ?
+            this.options.reload :
+            true; // default
+    }
 }

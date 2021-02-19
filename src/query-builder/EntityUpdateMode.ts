@@ -6,7 +6,7 @@ export enum EntityUpdateMode {
      * No update; for INSERT, this means the inserted identifiers are not set in the inserted entity
      * (nor in the returned InsertResult's identifiers property, if using repository insert or InsertQueryBuilder).
      */
-    None,
+    None = 0,
     /**
      * Update only identity; this is only applicable for INSERT queries and it copies back the generated identifier
      * of the inserted row back to the inserted entity model. The identifier is also available in the InsertResult's identifiers property.
